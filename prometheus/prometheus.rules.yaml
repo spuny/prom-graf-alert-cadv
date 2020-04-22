@@ -1,0 +1,61 @@
+groups:
+- name: basic_linux
+  rules:
+############################
+## Alert - Monitoring Host #
+############################
+  - alert: host_down
+    expr: up{} == 0
+    for: 30s
+    labels:
+      severity: critical
+    annotations:
+      summary: "Host down for at least 30 seconds"
+      description: "{{$labels.job}} is down"
+#######################
+## Alert - Disk Usage #
+##################### #
+  - alert: disk_usage
+    expr: ((node_filesystem_size{fstype="ext4",mountpoint="/rootfs"} - node_filesystem_avail{fstype="ext4",mountpoint="/rootfs"} ) / (node_filesystem_size{fstype="ext4",mountpoint="/rootfs"})) * 100 >= 65
+    for: 30s
+    labels:
+      severity: critical
+    annotations:
+      summary: "Server storage is almost full"
+      description: "Disk usage on {{ $labels.job }} is {{ humanize $value }}%. Reported by instance {{ $labels.instance }}."
+#####################
+## Alert - CPU Load #
+#####################
+  - alert: high_cpu_load
+    expr: 100 * (1 - avg by(instance)(irate(node_cpu{mode='idle'}[1m]))) >= 65
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Server under high load"
+      description: "High CPU Load on {{ $labels.job }} is {{ humanize $value }}. Reported by instance {{ $labels.instance }}."
+########################
+## Alert - Memory Load #
+########################
+  - alert: high_memory_load
+    expr: (((node_memory_MemTotal{} - node_memory_MemFree{} ) / (node_memory_MemTotal{}) )* 100) >= 90
+    for: 30s
+    labels:
+      severity: critical
+    annotations:
+      summary: "Server consumes high % of memory"
+      description: "High Memory Load on {{ $labels.job }} is {{ humanize $value}}%. Reported by instance {{ $labels.instance }}"
+########################
+## Alert - Disk inodes #
+########################
+  - alert: host_out_of_inodes
+    expr: (node_filesystem_files_free{mountpoint ="/rootfs" }/ node_filesystem_files{mountpoint ="/rootfs"}) * 100 < 10
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Host out of inodes (instance {{ $labels.instance }})"
+      description: "Disk is almost running out of available inodes (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+############################
+## Alert - Host Networking #
+############################
