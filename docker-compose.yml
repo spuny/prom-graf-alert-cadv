@@ -1,0 +1,98 @@
+# You have to create /var/lib/prometheus and chage owner to 65534: BEFORE running this!!!!
+version: "3"
+volumes:
+  grafana-storage:
+  grafana-config:
+  alermanager-data:
+
+networks:
+  back-tier:
+  front-tier:
+  nginx__network:
+    external: true
+
+services:
+  alertmanager:
+    container_name: alertmanager
+    image: prom/alertmanager:v0.8.0
+    restart: always
+    #    ports:
+    #      - "127.0.0.1:9093:9093"
+    volumes:
+        - ./alertmanager:/etc/alertmanager:rw
+    networks:
+      - back-tier
+
+  grafana:
+    container_name: grafana
+    restart: always
+    image: grafana/grafana:6.4.0
+    user: "472"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - grafana-config:/etc/grafana
+        #    ports:
+        #      - "3000:3000"
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,jdbranham-diagram-panel
+    networks:
+      - default
+      - nginx__network
+      - back-tier
+      - front-tier
+    environment:
+      VIRTUAL_HOST: "grafana.example.com"
+      VIRTUAL_PORT: 3000
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v2.17.0
+    user: "65534:65534"
+    links:
+     - alertmanager
+    command:
+     - '--config.file=/etc/prometheus/prometheus.yml'
+     - '--web.external-url=http://prometheus:9090/'
+     - '--web.route-prefix=/'
+     - '--storage.tsdb.path=/prometheus'
+     - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+     - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: always
+    networks:
+      - default
+      - nginx__network
+      - back-tier
+    volumes:
+      - ./prometheus:/etc/prometheus:rw
+      - /var/lib/prometheus:/prometheus
+    environment:
+      VIRTUAL_HOST: "promehteus.example.com"
+      VIRTUAL_PORT: 9090
+      #LETSENCRYPT_HOST: "prometheus.example.com"
+      #LETSENCRYPT_EMAIL: "admin@example.com"
+
+  cadvisor:
+    image: google/cadvisor
+    container_name: cadvisor
+    volumes:
+       - /:/rootfs:ro
+       - /var/run:/var/run:rw
+       - /sys:/sys:ro
+       - /var/lib/docker/:/var/lib/docker:ro
+       - /cgroup:/cgroup:ro
+         #    ports:
+         #      - "127.0.0.1:9911:8080"
+    privileged: true
+    restart: always
+
+  node-exporter:
+    container_name: node-exporter
+    image: prom/node-exporter:latest
+    restart: always
+    #    ports:
+    #      - "127.0.0.1:9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+

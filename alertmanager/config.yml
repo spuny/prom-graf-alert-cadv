@@ -1,0 +1,98 @@
+##################
+# Notif to email #
+##################
+global:
+  smtp_smarthost: 'smtp.office365.com:587'
+  smtp_from: 'xxx@xxxx.com'
+  smtp_auth_username: 'xxx@xxxx.com'
+  smtp_auth_password: 'xxxxxx'
+
+route:
+  group_by: ['notif']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h 
+  receiver: devops
+
+  routes:
+    - match:
+        severity: critical
+      receiver: devops
+
+receivers:
+- name: 'devops'
+  email_configs:
+  - to: 'destination@xxxxx.com'
+
+##################
+# Notif to slack # 
+##################
+#receivers:
+#  - name: 'devops'
+#    slack_configs:
+#    - channel: alerts
+#      send_resolved: true
+#      api_url: https://hooks.slack.com/services/<token-webhook-api-slack>
+#      title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] Monitoring Notification'
+#      text: >-
+#        {{ range .Alerts }}
+#          *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+#          *Description:* {{ .Annotations.description }}
+#          *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+#          *Details:*
+#          {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+#          {{ end }}
+#        {{ end }}
+receivers:
+  - name: devops
+    slack_configs:
+    - api_url: slack_hook_url
+      channel: '#monitoring'
+      username: 'name_of_bot'
+      icon_url: https://avatars3.githubusercontent.com/u/3380462
+      send_resolved: True
+      #                title: "summary: {{ .CommonAnnotations.summary }}"
+      #                text: "description: {{ .CommonAnnotations.description }}"
+      #title: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
+      # text: "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}"
+
+      #        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
+      #          {{- if .CommonAnnotations.summary -}}
+      #            {{- .CommonAnnotations.summary -}}
+      #          {{- else -}}
+      #            {{- with index .Alerts 0 -}}
+      #              {{- .Annotations.summary -}}
+      #            {{- end -}}
+      #          {{- end -}}
+      #          '
+      #        text: '
+      #          {{- if .CommonAnnotations.description -}}
+      #              {{- .CommonAnnotations.description -}}
+      #          {{- else -}}
+      #              {{- range $i, $alert := .Alerts }}
+      #                  {{- "\n" -}} {{- .Annotations.description -}}
+      #              {{- end -}}
+      #          {{- end -}}
+      #          '
+      title: |-
+        [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }} for {{ .CommonLabels.job }}
+        {{- if gt (len .CommonLabels) (len .GroupLabels) -}}
+          {{" "}}(
+          {{- with .CommonLabels.Remove .GroupLabels.Names }}
+            {{- range $index, $label := .SortedPairs -}}
+              {{ if $index }}, {{ end }}
+              {{- $label.Name }}="{{ $label.Value -}}"
+            {{- end }}
+          {{- end -}}
+          )
+        {{- end }}
+      text: >-
+        {{ range .Alerts -}}
+        *Alert:* {{ .Annotations.title }}{{ if .Labels.severity }} - `{{ .Labels.severity }}`{{ end }}
+
+        *Description:* {{ .Annotations.description }}
+
+        *Details:*
+          {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+          {{ end }}
+        {{ end }}
